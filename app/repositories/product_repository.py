@@ -33,10 +33,8 @@ class ProductRepository:
         return result.scalar_one_or_none()
     
     async def get_all_active(self) -> List[Product]:
-        """Get all active products"""
-        result = await self.session.execute(
-            select(Product).where(Product.is_active == True)
-        )
+        """Get all products"""
+        result = await self.session.execute(select(Product))
         return result.scalars().all()
     
     async def update(self, product: Product) -> Product:
@@ -46,10 +44,10 @@ class ProductRepository:
         return product
     
     async def delete(self, product_id: int) -> bool:
-        """Soft delete product"""
+        """Delete product"""
         product = await self.get_by_id(product_id)
         if product:
-            product.is_active = False
-            await self.update(product)
+            await self.session.delete(product)
+            await self.session.commit()
             return True
         return False

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
 
@@ -9,15 +9,16 @@ class ProductCreate(BaseModel):
     description: Optional[str] = None
     price: float
     sku: str
-    category: Optional[str] = None
     
-    @validator('price')
+    @field_validator('price')
+    @classmethod
     def validate_price(cls, v):
         if v <= 0:
             raise ValueError('Price must be positive')
         return v
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         if not v.strip():
             raise ValueError('Name cannot be empty')
@@ -30,16 +31,16 @@ class ProductUpdate(BaseModel):
     description: Optional[str] = None
     price: Optional[float] = None
     sku: Optional[str] = None
-    category: Optional[str] = None
-    is_active: Optional[bool] = None
     
-    @validator('price')
+    @field_validator('price')
+    @classmethod
     def validate_price(cls, v):
         if v is not None and v <= 0:
             raise ValueError('Price must be positive')
         return v
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         if v is not None and not v.strip():
             raise ValueError('Name cannot be empty')
@@ -53,8 +54,7 @@ class ProductResponse(BaseModel):
     description: Optional[str] = None
     price: float
     sku: str
-    is_active: bool
-    category: Optional[str] = None
+    photo: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     

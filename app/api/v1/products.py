@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
 from app.services.product_service import ProductService
-from app.repositories.base import ProductRepository
+from app.repositories.product_repository import ProductRepository
 from app.database import get_db
 from typing import List, Optional
 

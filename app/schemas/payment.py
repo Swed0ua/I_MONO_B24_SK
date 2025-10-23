@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, field_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
@@ -7,7 +7,8 @@ class ProductItemRequest(BaseModel):
     product_id: int
     quantity: int
     
-    @validator('quantity')
+    @field_validator('quantity')
+    @classmethod
     def validate_quantity(cls, v):
         if v <= 0:
             raise ValueError('Quantity must be positive')
@@ -47,7 +48,8 @@ class PaymentRequest(BaseModel):
     products: List[ProductItemRequest]  # Тільки ID та кількість
     result_callback: str
     
-    @validator('products')
+    @field_validator('products')
+    @classmethod
     def validate_products_not_empty(cls, v):
         if not v:
             raise ValueError('Products list cannot be empty')

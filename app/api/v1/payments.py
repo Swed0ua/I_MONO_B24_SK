@@ -4,11 +4,13 @@ from app.schemas.payment import (
     PaymentRequest, PaymentResponse, PaymentStatus, 
     PaymentCalculationResponse, ProductItemRequest
 )
-from app.services.payment_service import PaymentService, MonobankService
+from app.services.payment_service import PaymentService
+from app.services.monobank_service import MonobankService
 from app.services.product_service import ProductService
-from app.repositories.base import PaymentRepository, ProductRepository
+from app.repositories.payment_repository import PaymentRepository
+from app.repositories.product_repository import ProductRepository
 from app.database import get_db
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -42,36 +44,12 @@ async def calculate_payment(
 
 def get_payment_service(db: AsyncSession = Depends(get_db)) -> PaymentService:
     """Dependency для отримання сервісу платежів"""
-    monobank_service = MonobankService()
-    payment_repository = PaymentRepository(db)
-    return PaymentService(payment_repository, monobank_service)
-
-
-@router.post("/create", response_model=PaymentResponse)
-async def create_payment(
-    request: PaymentRequest,
-    payment_service: PaymentService = Depends(get_payment_service),
-    product_service: ProductService = Depends(get_product_service)
-):
-    """Створення платежу з розрахунком сум на бекенді"""
-    try:
-        # Спочатку розраховуємо суми
-        calculation = await product_service.calculate_payment(request.products)
-        
-        # Створюємо платеж з розрахованими сумами
-        result = await payment_service.create_payment_with_calculation(request, calculation)
-        return result
-        
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Payment creation failed: {str(e)}"
-        )
+    from app.config import settings
+    monobank_service = MonobankService(
+        store_id=settings.monobank_store_id,
+        store_secret=settings.monobank_store_secret
+    )
+    return PaymentService(monobank_service)
 
 
 @router.post("/validate", response_model=Dict[str, Any])

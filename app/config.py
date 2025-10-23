@@ -12,9 +12,6 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://user:password@localhost/smartkasa"
     database_echo: bool = False
     
-    # Redis
-    redis_url: str = "redis://localhost:6379/0"
-    
     # Monobank API
     monobank_store_id: str
     monobank_store_secret: str

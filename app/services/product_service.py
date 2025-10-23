@@ -1,6 +1,8 @@
 from typing import List, Optional
 from app.repositories.product_repository import ProductRepository
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
+from app.schemas.payment import ProductItemRequest, ProductItemResponse, PaymentCalculationResponse
+from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,7 +24,7 @@ class ProductService:
             
             product = await self.product_repository.create(product_data.dict())
             logger.info(f"Product created: {product.name} (SKU: {product.sku})")
-            return ProductResponse.from_orm(product)
+            return ProductResponse.from_attributes(product)
             
         except Exception as e:
             logger.error(f"Failed to create product: {str(e)}")
@@ -39,7 +41,7 @@ class ProductService:
     async def get_all_products(self) -> List[ProductResponse]:
         """Get all products"""
         products = await self.product_repository.get_all_active()
-        return [ProductResponse.from_orm(product) for product in products]
+        return [ProductResponse.from_attributes(product) for product in products]
     
     async def update_product(self, product_id: int, product_data: ProductUpdate) -> Optional[ProductResponse]:
         """Update product"""
@@ -78,3 +80,35 @@ class ProductService:
         except Exception as e:
             logger.error(f"Failed to delete product: {str(e)}")
             raise
+    
+    async def calculate_payment(self, products: List[ProductItemRequest]) -> PaymentCalculationResponse:
+        """Calculate payment amount based on products"""
+        calculated_products = []
+        total_sum = 0.0
+        
+        for product_request in products:
+            # Get product from DB
+            product = await self.product_repository.get_by_id(product_request.product_id)
+            if not product:
+                raise ValueError(f"Product with ID {product_request.product_id} not found")
+            
+            # Calculate amount
+            unit_price = product.price
+            total_price = unit_price * product_request.quantity
+            total_sum += total_price
+            
+            calculated_products.append(ProductItemResponse(
+                product_id=product.id,
+                name=product.name,
+                sku=product.sku,
+                quantity=product_request.quantity,
+                unit_price=unit_price,
+                total_price=total_price
+            ))
+        
+        logger.info(f"Payment calculated: {total_sum} for {len(products)} products")
+        return PaymentCalculationResponse(
+            total_sum=total_sum,
+            products=calculated_products,
+            calculated_at=datetime.utcnow()
+        )
