@@ -4,7 +4,6 @@ from datetime import datetime
 
 
 class ProductItemRequest(BaseModel):
-    """Запит товару (тільки ID та кількість)"""
     product_id: int
     quantity: int
     

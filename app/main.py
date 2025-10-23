@@ -7,11 +7,9 @@ from app.api.v1 import payments, customers, products
 from app.webhooks.monobank_webhook import router as webhook_router
 import logging
 
-# Налаштування логування
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Створення FastAPI додатку
 app = FastAPI(
     title=settings.app_name,
     version=settings.version,
@@ -23,13 +21,12 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # В продакшені обмежити домени
+    allow_origins=["*"],  # TODO: IN PRODUCTION LIMIT DOMAINS
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Підключення роутерів
 app.include_router(payments.router, prefix="/api/v1")
 app.include_router(customers.router, prefix="/api/v1")
 app.include_router(products.router, prefix="/api/v1")
@@ -41,7 +38,7 @@ async def startup_event():
     """Події при запуску додатку"""
     logger.info("Starting SmartKasa Integration API...")
     
-    # Створення таблиць БД
+    # Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
