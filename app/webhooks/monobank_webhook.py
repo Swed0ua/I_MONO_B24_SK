@@ -5,6 +5,7 @@ from app.services.monobank_service import MonobankService
 from app.repositories.payment_repository import PaymentRepository
 from app.database import get_db
 from app.config import settings
+from app.utils.security import verify_webhook_signature
 import json
 import logging
 
@@ -29,8 +30,16 @@ async def monobank_callback(
 ):
     """Обробка callback від Monobank"""
     try:
-        # Парсимо дані
+        # Отримуємо тіло запиту
         body = await request.body()
+        
+        # Перевіряємо підпис
+        signature = request.headers.get("signature")
+        if not verify_webhook_signature(body, signature):
+            logger.warning("Invalid webhook signature")
+            raise HTTPException(status_code=401, detail="Invalid signature")
+        
+        # Парсимо дані
         callback_data = json.loads(body.decode())
         order_id = callback_data.get("order_id")
         status = callback_data.get("status")
