@@ -1,6 +1,7 @@
 from pydantic import BaseModel, field_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from .payment_item import PaymentItemResponse
 
 
 class ProductItemRequest(BaseModel):
@@ -70,6 +71,7 @@ class PaymentResponse(BaseModel):
     status: str
     total_sum: float
     products: List[ProductItemResponse]
+    items: List[PaymentItemResponse] = []  # PaymentItem записи
 
 
 class PaymentStatus(BaseModel):

@@ -1,6 +1,9 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 from .monobank_service import MonobankService
-from app.schemas.payment import PaymentRequest, PaymentCalculationResponse
+from app.schemas.payment import PaymentRequest, PaymentResponse
+from app.repositories.payment_repository import PaymentRepository
+from app.repositories.payment_item_repository import PaymentItemRepository
+from app.schemas.payment_item import PaymentItemCreate
 import logging
 
 logger = logging.getLogger(__name__)
@@ -9,58 +12,12 @@ logger = logging.getLogger(__name__)
 class PaymentService:
     """Payment business logic service"""
     
-    def __init__(self, monobank_service: MonobankService):
+    def __init__(self, monobank_service: MonobankService, payment_repository: PaymentRepository = None, payment_item_repository: PaymentItemRepository = None):
         self.monobank_service = monobank_service
+        self.payment_repository = payment_repository
+        self.payment_item_repository = payment_item_repository
     
-    async def create_payment(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create payment with business logic"""
-        try:
-            self._validate_order_data(order_data)
-            
-            result = await self.monobank_service.create_order(order_data)
-            
-            logger.info(f"Payment created: {result}")
-            return result
-            
-        except Exception as e:
-            logger.error(f"Payment creation failed: {str(e)}")
-            raise
-    
-    async def create_payment_with_calculation(
-        self, 
-        request: PaymentRequest, 
-        calculation: PaymentCalculationResponse
-    ) -> Dict[str, Any]:
-        """Create payment with calculated amounts"""
-        try:
-            # Prepare order data for Monobank
-            order_data = {
-                "store_order_id": request.store_order_id,
-                "client_phone": request.client_phone,
-                "total_sum": calculation.total_sum,
-                "invoice": request.invoice.dict(),
-                "available_programs": [p.dict() for p in request.available_programs],
-                "products": [
-                    {
-                        "name": p.name,
-                        "count": p.quantity,
-                        "sum": p.total_price
-                    }
-                    for p in calculation.products
-                ],
-                "result_callback": request.result_callback
-            }
-            
-            # Create payment in Monobank
-            result = await self.monobank_service.create_order(order_data)
-            
-            logger.info(f"Payment created with calculation: {result}")
-            return result
-            
-        except Exception as e:
-            logger.error(f"Payment creation with calculation failed: {str(e)}")
-            raise
-    
+
     async def validate_client(self, phone: str) -> Dict[str, Any]:
         """Validate client by phone"""
         try:
@@ -79,6 +36,57 @@ class PaymentService:
             
         except Exception as e:
             logger.error(f"Client validation failed: {str(e)}")
+            raise
+    
+    async def create_payment(self, request: PaymentRequest) -> PaymentResponse:
+        """Create payment from PaymentRequest"""
+        try:
+            # Prepare order data for Monobank
+            order_data = {
+                "store_order_id": request.store_order_id,
+                "client_phone": request.client_phone,
+                "total_sum": 0.0,  # Will be calculated
+                "invoice": request.invoice.dict(),
+                "available_programs": [p.dict() for p in request.available_programs],
+                "products": [
+                    {
+                        "name": f"Product {p.product_id}",
+                        "count": p.quantity,
+                        "sum": 0.0  # Will be calculated
+                    }
+                    for p in request.products
+                ],
+                "result_callback": request.result_callback
+            }
+            
+            # Create payment in Monobank
+            result = await self.monobank_service.create_order(order_data)
+            
+            logger.info(f"Payment created: {result}")
+            
+            # Return PaymentResponse
+            return PaymentResponse(
+                payment_id=result.get("order_id", 0),
+                external_id=result.get("order_id"),
+                status=result.get("status", "pending"),
+                total_sum=order_data["total_sum"],
+                products=[],  # Will be populated by calculation
+                items=[]
+            )
+            
+        except Exception as e:
+            logger.error(f"Payment creation failed: {str(e)}")
+            raise
+    
+    async def get_payment_status(self, payment_id: str) -> Dict[str, Any]:
+        """Get payment status"""
+        try:
+            result = await self.monobank_service.get_order_status(payment_id)
+            logger.info(f"Payment status for {payment_id}: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Failed to get payment status: {str(e)}")
             raise
     
     async def confirm_payment(self, payment_id: str, confirmed: bool) -> Dict[str, Any]:
@@ -101,28 +109,3 @@ class PaymentService:
         except Exception as e:
             logger.error(f"Payment confirmation failed: {str(e)}")
             raise
-    
-    async def get_payment_status(self, order_id: str) -> Dict[str, Any]:
-        """Get payment status"""
-        try:
-            result = await self.monobank_service.get_order_status(order_id)
-            logger.info(f"Payment status for {order_id}: {result}")
-            return result
-            
-        except Exception as e:
-            logger.error(f"Failed to get payment status: {str(e)}")
-            raise
-    
-    def _validate_order_data(self, order_data: Dict[str, Any]) -> None:
-        """Validate order data"""
-        required_fields = ["store_order_id", "client_phone", "total_sum", "products"]
-        
-        for field in required_fields:
-            if field not in order_data:
-                raise ValueError(f"Missing required field: {field}")
-        
-        if not order_data["products"]:
-            raise ValueError("Products list cannot be empty")
-        
-        if order_data["total_sum"] <= 0:
-            raise ValueError("Total sum must be positive")

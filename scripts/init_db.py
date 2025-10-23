@@ -1,16 +1,11 @@
-#!/usr/bin/env python3
-"""
-Скрипт для ініціалізації бази даних
-"""
-
 import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine
 from app.config import settings
-from app.models.base import Base
+from app.models import Base
 
 
 async def init_db():
-    """Ініціалізація бази даних"""
+    """Initialize database"""
     engine = create_async_engine(settings.database_url)
     
     async with engine.begin() as conn:

@@ -16,3 +16,4 @@ class Payment(BaseModel):
     products_data = Column(Text)  # JSON
     
     customer = relationship("Customer", back_populates="payments")
+    items = relationship("PaymentItem", back_populates="payment")

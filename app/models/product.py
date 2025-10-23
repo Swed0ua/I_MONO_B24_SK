@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, Float, Boolean
+from sqlalchemy.orm import relationship
 from .base import BaseModel
 
 
@@ -11,3 +12,5 @@ class Product(BaseModel):
     sku = Column(String(100), unique=True, index=True)
     description = Column(String(500), nullable=True)
     photo = Column(String(500), nullable=True)
+    
+    payment_items = relationship("PaymentItem", back_populates="product")

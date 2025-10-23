@@ -15,3 +15,4 @@ class Customer(BaseModel):
     bitrix_id = Column(String(50), nullable=True)
     
     payments = relationship("Payment", back_populates="customer")
+    payment_items = relationship("PaymentItem", back_populates="customer")
