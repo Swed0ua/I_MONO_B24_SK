@@ -19,8 +19,6 @@ class Settings(BaseSettings):
     
     # Bitrix24 API
     bitrix_webhook_url: str
-    bitrix_client_id: Optional[str] = None
-    bitrix_client_secret: Optional[str] = None
     
     # Security
     secret_key: str
