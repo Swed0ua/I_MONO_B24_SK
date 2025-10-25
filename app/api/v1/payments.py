@@ -143,7 +143,7 @@ async def create_payment(
             total_sum=payment.total_sum,
             products=calculation.products,
             items=[
-                PaymentItemResponse.from_attributes(item)
+                PaymentItemResponse.model_validate(item)
                 for item in created_items
             ]
         )

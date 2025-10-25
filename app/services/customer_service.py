@@ -48,7 +48,7 @@ class CustomerService:
                     logger.warning(f"Failed to create CRM contact: {str(crm_error)}")
             
             logger.info(f"Customer created: {customer.phone}")
-            return CustomerResponse.from_attributes(customer)
+            return CustomerResponse.model_validate(customer)
             
         except Exception as e:
             logger.error(f"Failed to create customer: {str(e)}")
@@ -60,7 +60,7 @@ class CustomerService:
         if not customer:
             return None
         
-        return CustomerResponse.from_attributes(customer)
+        return CustomerResponse.model_validate(customer)
     
     async def get_customer_by_phone(self, phone: str) -> Optional[CustomerResponse]:
         """Get customer by phone"""
@@ -68,12 +68,12 @@ class CustomerService:
         if not customer:
             return None
         
-        return CustomerResponse.from_attributes(customer)
+        return CustomerResponse.model_validate(customer)
     
     async def get_all_customers(self) -> List[CustomerResponse]:
         """Get all customers"""
         customers = await self.customer_repository.get_all()
-        return [CustomerResponse.from_attributes(customer) for customer in customers]
+        return [CustomerResponse.model_validate(customer) for customer in customers]
     
     async def update_customer(self, customer_id: int, customer_data: CustomerUpdate) -> Optional[CustomerResponse]:
         """Update customer"""
@@ -95,7 +95,7 @@ class CustomerService:
             
             updated_customer = await self.customer_repository.update(customer)
             logger.info(f"Customer updated: {updated_customer.phone} (ID: {updated_customer.id})")
-            return CustomerResponse.from_attributes(updated_customer)
+            return CustomerResponse.model_validate(updated_customer)
             
         except Exception as e:
             logger.error(f"Failed to update customer: {str(e)}")

@@ -24,7 +24,7 @@ class ProductService:
             
             product = await self.product_repository.create(product_data.dict())
             logger.info(f"Product created: {product.name} (SKU: {product.sku})")
-            return ProductResponse.from_attributes(product)
+            return ProductResponse.model_validate(product)
             
         except Exception as e:
             logger.error(f"Failed to create product: {str(e)}")
@@ -41,7 +41,7 @@ class ProductService:
     async def get_all_products(self) -> List[ProductResponse]:
         """Get all products"""
         products = await self.product_repository.get_all_active()
-        return [ProductResponse.from_attributes(product) for product in products]
+        return [ProductResponse.model_validate(product) for product in products]
     
     async def update_product(self, product_id: int, product_data: ProductUpdate) -> Optional[ProductResponse]:
         """Update product"""
