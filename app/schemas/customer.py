@@ -1,6 +1,7 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
+from app.core.validators.validator_factory import ValidatorFactory
 
 
 class CustomerCreate(BaseModel):
@@ -14,11 +15,8 @@ class CustomerCreate(BaseModel):
     @field_validator('phone')
     @classmethod
     def validate_phone(cls, v):
-        if not v.startswith('+380'):
-            raise ValueError('Phone must start with +380')
-        if len(v) != 13:
-            raise ValueError('Phone must be 13 characters long')
-        return v
+        validator = ValidatorFactory.create_phone_validator()
+        return validator.validate(v)
 
 
 class CustomerUpdate(BaseModel):
@@ -32,12 +30,8 @@ class CustomerUpdate(BaseModel):
     @field_validator('phone')
     @classmethod
     def validate_phone(cls, v):
-        if v is not None:
-            if not v.startswith('+380'):
-                raise ValueError('Phone must start with +380')
-            if len(v) != 13:
-                raise ValueError('Phone must be 13 characters long')
-        return v
+        validator = ValidatorFactory.create_phone_validator()
+        return validator.validate_optional(v)
 
 
 class CustomerResponse(BaseModel):

@@ -1,5 +1,6 @@
 from typing import Dict, Any
 from app.core.interfaces.payment_provider import PaymentProviderInterface
+from app.core.validators.validator_factory import ValidatorFactory
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,25 +11,20 @@ class PaymentService:
     
     def __init__(self, payment_provider: PaymentProviderInterface):
         self.payment_provider = payment_provider
+        self.phone_validator = ValidatorFactory.create_phone_validator()
     
 
     async def validate_client(self, phone: str) -> Dict[str, Any]:
         """Validate client by phone"""
         try:
-            # Basic phone validation
-            if not phone.startswith('+380'):
-                raise ValueError("Phone must start with +380")
-            
-            if len(phone) != 13:
-                raise ValueError("Phone must be 13 characters long")
-            
+            validated_phone = self.phone_validator.validate(phone)
             return {
-                "phone": phone,
+                "phone": validated_phone,
                 "is_valid": True,
                 "message": "Phone number is valid"
             }
             
-        except Exception as e:
+        except ValueError as e:
             logger.error(f"Client validation failed: {str(e)}")
             raise
     
