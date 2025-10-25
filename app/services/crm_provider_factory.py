@@ -1,5 +1,6 @@
 from typing import Dict, Type
 from app.core.interfaces.crm_provider import CRMProviderInterface
+from app.core.types.crm_types import CRMProviderType
 from app.services.crm_service import BitrixService
 from app.config import settings
 import logging
@@ -17,7 +18,7 @@ class CRMProviderFactory:
     }
     
     @classmethod
-    def create_provider(cls, provider_type: str, **kwargs) -> CRMProviderInterface:
+    def create_provider(cls, provider_type: CRMProviderType, **kwargs) -> CRMProviderInterface:
         """Create CRM provider instance"""
         logger.info(f"Creating CRM provider: {provider_type}")
         
@@ -28,7 +29,7 @@ class CRMProviderFactory:
         if provider_class is None:
             raise NotImplementedError(f"CRM provider {provider_type} not implemented yet")
         
-        if provider_type == "bitrix":
+        if provider_type == CRMProviderType.BITRIX:
             return provider_class(
                 webhook_url=kwargs.get("webhook_url", settings.bitrix_webhook_url)
             )

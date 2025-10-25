@@ -1,5 +1,7 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.types.crm_types import CRMProviderType
+from app.core.types.payment_types import PaymentProviderType
 from app.database import get_db
 from app.services.payment_service import PaymentService
 from app.services.product_service import ProductService
@@ -21,7 +23,7 @@ def get_product_service(db: AsyncSession = Depends(get_db)) -> ProductService:
 def get_payment_service(db: AsyncSession = Depends(get_db)) -> PaymentService:
     """Dependency for PaymentService with configurable provider"""
     provider = PaymentProviderFactory.create_provider(
-        provider_type="monobank",
+        provider_type=PaymentProviderType.MONOBANK,
         store_id=settings.monobank_store_id,
         store_secret=settings.monobank_store_secret,
         base_url=settings.monobank_base_url
@@ -37,7 +39,7 @@ def get_customer_service(db: AsyncSession = Depends(get_db)) -> CustomerService:
 
 def get_crm_service() -> CRMService:
     """Dependency for CRMService with configurable provider"""
-    provider = CRMProviderFactory.create_provider("bitrix")
+    provider = CRMProviderFactory.create_provider(CRMProviderType.BITRIX)
     return CRMService(provider)
 
 
