@@ -2,12 +2,13 @@ import httpx
 import logging
 from typing import Dict, Any, Optional
 from app.config import settings
+from app.core.interfaces.crm_provider import CRMProviderInterface
 
 logger = logging.getLogger(__name__)
 
 
-class BitrixService:
-    """Service for Bitrix24 API integration"""
+class BitrixService(CRMProviderInterface):
+    """Bitrix24 CRM provider implementation"""
     
     def __init__(self, webhook_url: str = None):
         self.webhook_url = webhook_url or settings.bitrix_webhook_url
@@ -41,6 +42,36 @@ class BitrixService:
             logger.error(f"Failed to create deal in Bitrix24: {str(e)}")
             raise
     
+    async def get_contact(self, contact_id: str) -> Dict[str, Any]:
+        """Get contact by ID from Bitrix24"""
+        try:
+            result = await self._make_request("crm.contact.get", {"id": contact_id})
+            logger.info(f"Contact retrieved from Bitrix24: {contact_id}")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get contact from Bitrix24: {str(e)}")
+            raise
+    
+    async def search_contact_by_phone(self, phone: str) -> Optional[Dict[str, Any]]:
+        """Search contact by phone number in Bitrix24"""
+        try:
+            result = await self._make_request("crm.contact.list", {
+                "filter": {"PHONE": phone},
+                "select": ["ID", "NAME", "LAST_NAME", "PHONE", "EMAIL"]
+            })
+            
+            contacts = result.get("result", [])
+            if contacts:
+                logger.info(f"Contact found by phone in Bitrix24: {phone}")
+                return contacts[0]
+            else:
+                logger.info(f"No contact found by phone in Bitrix24: {phone}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Failed to search contact by phone in Bitrix24: {str(e)}")
+            raise
+    
     async def update_contact(self, contact_id: str, contact_data: Dict[str, Any]) -> Dict[str, Any]:
         """Update contact in Bitrix24"""
         try:
@@ -56,10 +87,33 @@ class BitrixService:
 
 
 class CRMService:
-    """CRM business logic service"""
+    """Universal CRM service that works with any CRM provider"""
     
-    def __init__(self, bitrix_service: BitrixService):
-        self.bitrix_service = bitrix_service
+    def __init__(self, crm_provider: CRMProviderInterface):
+        self.crm_provider = crm_provider
+    
+    async def create_contact_from_customer(self, customer_data) -> Dict[str, Any]:
+        """Create CRM contact from CustomerCreate data"""
+        contact_data = self._build_contact_data(customer_data)
+        return await self.crm_provider.create_contact(contact_data)
+    
+    async def validate_contact_id_by_phone(self, contact_id: str, phone: str) -> bool:
+        """Validate that CRM contact ID matches phone number"""
+        try:
+            contact = await self.crm_provider.get_contact(contact_id)
+            contact_phones = [p["VALUE"] for p in contact.get("PHONE", [])]
+            return phone in contact_phones
+        except Exception:
+            return False
+    
+    def _build_contact_data(self, customer_data) -> Dict[str, Any]:
+        """Build CRM contact data from CustomerCreate - provider agnostic"""
+        return {
+            "NAME": customer_data.first_name or "",
+            "LAST_NAME": customer_data.last_name or "",
+            "PHONE": [{"VALUE": customer_data.phone, "VALUE_TYPE": "WORK"}],
+            "EMAIL": [{"VALUE": customer_data.email or "", "VALUE_TYPE": "WORK"}] if customer_data.email else []
+        }
     
     async def create_customer_lead(self, customer_data: Dict[str, Any], payment_data: Dict[str, Any]) -> str:
         """Create customer lead in CRM"""
@@ -73,31 +127,17 @@ class CRMService:
             }
             
             # Create contact
-            contact_result = await self.bitrix_service.create_contact(contact_data)
+            contact_result = await self.crm_provider.create_contact(contact_data)
             contact_id = contact_result.get("result")
             
-            # Prepare deal data
-            deal_data = {
-                "TITLE": f"Payment {payment_data.get('store_order_id', 'Unknown')}",
-                "OPPORTUNITY": payment_data.get("total_sum", 0),
-                "CURRENCY_ID": "UAH",
-                "STAGE_ID": "NEW",
-                "CONTACT_ID": contact_id,
-                "COMMENTS": f"Payment from Monobank: {payment_data.get('external_id', 'Unknown')}"
-            }
-            
-            # Create deal
-            deal_result = await self.bitrix_service.create_deal(deal_data)
-            deal_id = deal_result.get("result")
-            
-            logger.info(f"Customer lead created: Contact {contact_id}, Deal {deal_id}")
-            return deal_id
+            logger.info(f"Customer lead created: Contact {contact_id}")
+            return contact_id
             
         except Exception as e:
             logger.error(f"Failed to create customer lead: {str(e)}")
             raise
     
-    async def update_customer_info(self, bitrix_id: str, customer_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_customer_info(self, contact_id: str, customer_data: Dict[str, Any]) -> Dict[str, Any]:
         """Update customer information in CRM"""
         try:
             contact_data = {
@@ -107,8 +147,8 @@ class CRMService:
                 "EMAIL": [{"VALUE": customer_data.get("email", ""), "VALUE_TYPE": "WORK"}]
             }
             
-            result = await self.bitrix_service.update_contact(bitrix_id, contact_data)
-            logger.info(f"Customer info updated in CRM: {bitrix_id}")
+            result = await self.crm_provider.update_contact(contact_id, contact_data)
+            logger.info(f"Customer info updated in CRM: {contact_id}")
             return result
             
         except Exception as e:

@@ -1,6 +1,7 @@
 from typing import List, Optional
 from app.repositories.customer_repository import CustomerRepository
 from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerResponse
+from app.services.crm_service import CRMService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -9,18 +10,40 @@ logger = logging.getLogger(__name__)
 class CustomerService:
     """Customer service"""
     
-    def __init__(self, customer_repository: CustomerRepository):
+    def __init__(self, customer_repository: CustomerRepository, crm_service: CRMService = None):
         self.customer_repository = customer_repository
+        self.crm_service = crm_service
     
     async def create_customer(self, customer_data: CustomerCreate) -> CustomerResponse:
-        """Create customer"""
+        """Create customer with optional CRM integration"""
         try:
             # Check if phone already exists
             existing_customer = await self.customer_repository.get_by_phone(customer_data.phone)
             if existing_customer:
                 raise ValueError(f"Customer with phone {customer_data.phone} already exists")
             
+            # Validate Bitrix ID if provided
+            if customer_data.bitrix_id and self.crm_service:
+                is_valid = await self.crm_service.validate_contact_id_by_phone(
+                    customer_data.bitrix_id, customer_data.phone
+                )
+                if not is_valid:
+                    raise ValueError(f"Bitrix ID {customer_data.bitrix_id} doesn't match phone {customer_data.phone}")
+            
+            # Create customer in database
             customer = await self.customer_repository.create(customer_data.dict())
+            
+            # Create CRM contact if no Bitrix ID provided
+            if not customer_data.bitrix_id and self.crm_service:
+                try:
+                    crm_result = await self.crm_service.create_contact_from_customer(customer_data)
+                    if crm_result.get("result"):
+                        customer.bitrix_id = str(crm_result["result"])
+                        await self.customer_repository.update(customer)
+                        logger.info(f"CRM contact created for customer: {customer.phone}")
+                except Exception as crm_error:
+                    logger.warning(f"Failed to create CRM contact: {str(crm_error)}")
+            
             logger.info(f"Customer created: {customer.phone}")
             return CustomerResponse.from_attributes(customer)
             
