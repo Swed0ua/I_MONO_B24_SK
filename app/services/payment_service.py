@@ -1,9 +1,5 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 from .monobank_service import MonobankService
-from app.schemas.payment import PaymentRequest, PaymentResponse
-from app.repositories.payment_repository import PaymentRepository
-from app.repositories.payment_item_repository import PaymentItemRepository
-from app.schemas.payment_item import PaymentItemCreate
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,10 +8,8 @@ logger = logging.getLogger(__name__)
 class PaymentService:
     """Payment business logic service"""
     
-    def __init__(self, monobank_service: MonobankService, payment_repository: PaymentRepository = None, payment_item_repository: PaymentItemRepository = None):
+    def __init__(self, monobank_service: MonobankService):
         self.monobank_service = monobank_service
-        self.payment_repository = payment_repository
-        self.payment_item_repository = payment_item_repository
     
 
     async def validate_client(self, phone: str) -> Dict[str, Any]:
@@ -38,41 +32,14 @@ class PaymentService:
             logger.error(f"Client validation failed: {str(e)}")
             raise
     
-    async def create_payment(self, request: PaymentRequest) -> PaymentResponse:
-        """Create payment from PaymentRequest"""
+    async def create_payment(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create payment in Monobank with prepared data"""
         try:
-            # Prepare order data for Monobank
-            order_data = {
-                "store_order_id": request.store_order_id,
-                "client_phone": request.client_phone,
-                "total_sum": 0.0,  # Will be calculated
-                "invoice": request.invoice.dict(),
-                "available_programs": [p.dict() for p in request.available_programs],
-                "products": [
-                    {
-                        "name": f"Product {p.product_id}",
-                        "count": p.quantity,
-                        "sum": 0.0  # Will be calculated
-                    }
-                    for p in request.products
-                ],
-                "result_callback": request.result_callback
-            }
-            
-            # Create payment in Monobank
+            # Відправляємо готові дані в Monobank
             result = await self.monobank_service.create_order(order_data)
             
-            logger.info(f"Payment created: {result}")
-            
-            # Return PaymentResponse
-            return PaymentResponse(
-                payment_id=result.get("order_id", 0),
-                external_id=result.get("order_id"),
-                status=result.get("status", "pending"),
-                total_sum=order_data["total_sum"],
-                products=[],  # Will be populated by calculation
-                items=[]
-            )
+            logger.info(f"Payment created in Monobank: {result}")
+            return result
             
         except Exception as e:
             logger.error(f"Payment creation failed: {str(e)}")
