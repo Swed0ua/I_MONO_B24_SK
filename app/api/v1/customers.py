@@ -21,7 +21,7 @@ async def create_customer(
     try:
         # Передаємо CRMService в CustomerService
         customer_service.crm_service = crm_service
-        customer = await customer_service.create_customer(customer_data)
+        customer = await customer_service.ensure_customer(customer_data)
         return customer
         
     except ValueError as e:

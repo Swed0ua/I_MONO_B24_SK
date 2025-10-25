@@ -14,13 +14,13 @@ class CustomerService:
         self.customer_repository = customer_repository
         self.crm_service = crm_service
     
-    async def create_customer(self, customer_data: CustomerCreate) -> CustomerResponse:
-        """Create customer with optional CRM integration"""
+    async def ensure_customer(self, customer_data: CustomerCreate) -> CustomerResponse:
+        """Create customer with optional CRM integration or return existing customer"""
         try:
             # Check if phone already exists
             existing_customer = await self.customer_repository.get_by_phone(customer_data.phone)
             if existing_customer:
-                raise ValueError(f"Customer with phone {customer_data.phone} already exists")
+                logger.info(f"Customer with phone {customer_data.phone} already exists, returning existing")
             
             # Validate Bitrix ID if provided
             if customer_data.bitrix_id and self.crm_service:
@@ -31,10 +31,13 @@ class CustomerService:
                     raise ValueError(f"Bitrix ID {customer_data.bitrix_id} doesn't match phone {customer_data.phone}")
             
             # Create customer in database
-            customer = await self.customer_repository.create(customer_data.dict())
+            if not existing_customer:
+                customer = await self.customer_repository.create(customer_data.dict())
+            else:
+                customer = existing_customer
             
             # Create CRM contact if no Bitrix ID provided
-            if not customer_data.bitrix_id and self.crm_service:
+            if not customer_data.bitrix_id and self.crm_service and not customer.bitrix_id:
                 try:
                     crm_result = await self.crm_service.create_contact_from_customer(customer_data)
                     if crm_result.get("result"):
@@ -113,14 +116,9 @@ class CustomerService:
     async def get_or_create_customer(self, phone: str, **kwargs) -> CustomerResponse:
         """Get existing customer or create new one"""
         try:
-            # Try to get existing customer
-            customer = await self.get_customer_by_phone(phone)
-            if customer:
-                return customer
-            
-            # Create new customer
+            # Create new customer if not exists or return existing user
             customer_data = CustomerCreate(phone=phone, **kwargs)
-            return await self.create_customer(customer_data)
+            return await self.ensure_customer(customer_data)
             
         except Exception as e:
             logger.error(f"Failed to get or create customer: {str(e)}")
