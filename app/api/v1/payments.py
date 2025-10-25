@@ -4,21 +4,13 @@ from app.schemas.payment import (
     PaymentRequest, PaymentResponse, PaymentStatus, 
     PaymentCalculationResponse, ProductItemRequest
 )
+from app.dependencies import get_payment_service, get_product_service
 from app.services.payment_service import PaymentService
-from app.services.monobank_service import MonobankService
 from app.services.product_service import ProductService
-from app.repositories.payment_repository import PaymentRepository
-from app.repositories.product_repository import ProductRepository
 from app.database import get_db
 from typing import Dict, Any, List
 
 router = APIRouter(prefix="/payments", tags=["payments"])
-
-
-def get_product_service(db: AsyncSession = Depends(get_db)) -> ProductService:
-    """Dependency для отримання сервісу товарів"""
-    product_repository = ProductRepository(db)
-    return ProductService(product_repository)
 
 
 @router.post("/calculate", response_model=PaymentCalculationResponse)
@@ -40,18 +32,6 @@ async def calculate_payment(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Calculation failed: {str(e)}"
         )
-
-
-def get_payment_service(db: AsyncSession = Depends(get_db)) -> PaymentService:
-    """Dependency для отримання сервісу платежів"""
-    from app.config import settings
-    
-    monobank_service = MonobankService(
-        store_id=settings.monobank_store_id,
-        store_secret=settings.monobank_store_secret
-    )
-    
-    return PaymentService(monobank_service)
 
 
 @router.post("/validate", response_model=Dict[str, Any])

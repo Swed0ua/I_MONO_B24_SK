@@ -5,11 +5,12 @@ import json
 import httpx
 from typing import Dict, Any
 import logging
+from app.core.interfaces.payment_provider import PaymentProviderInterface
 
 logger = logging.getLogger(__name__)
 
 
-class MonobankService:
+class MonobankService(PaymentProviderInterface):
     """Service for Monobank API integration"""
     
     def __init__(self, store_id: str, store_secret: str, base_url: str = "https://u2-demo-ext.mono.st4g3.com"):

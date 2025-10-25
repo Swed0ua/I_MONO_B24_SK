@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from .monobank_service import MonobankService
+from app.core.interfaces.payment_provider import PaymentProviderInterface
 import logging
 
 logger = logging.getLogger(__name__)
@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 class PaymentService:
     """Payment business logic service"""
     
-    def __init__(self, monobank_service: MonobankService):
-        self.monobank_service = monobank_service
+    def __init__(self, payment_provider: PaymentProviderInterface):
+        self.payment_provider = payment_provider
     
 
     async def validate_client(self, phone: str) -> Dict[str, Any]:
@@ -33,12 +33,10 @@ class PaymentService:
             raise
     
     async def create_payment(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create payment in Monobank with prepared data"""
+        """Create payment with prepared data"""
         try:
-            # Відправляємо готові дані в Monobank
-            result = await self.monobank_service.create_order(order_data)
-            
-            logger.info(f"Payment created in Monobank: {result}")
+            result = await self.payment_provider.create_order(order_data)
+            logger.info(f"Payment created: {result}")
             return result
             
         except Exception as e:
@@ -48,7 +46,7 @@ class PaymentService:
     async def get_payment_status(self, payment_id: str) -> Dict[str, Any]:
         """Get payment status"""
         try:
-            result = await self.monobank_service.get_order_status(payment_id)
+            result = await self.payment_provider.get_order_status(payment_id)
             logger.info(f"Payment status for {payment_id}: {result}")
             return result
             
@@ -59,8 +57,7 @@ class PaymentService:
     async def confirm_payment(self, payment_id: str, confirmed: bool) -> Dict[str, Any]:
         """Confirm payment"""
         try:
-            # Get payment status from Monobank
-            status = await self.monobank_service.get_order_status(payment_id)
+            status = await self.payment_provider.get_order_status(payment_id)
             
             if confirmed:
                 logger.info(f"Payment {payment_id} confirmed by merchant")

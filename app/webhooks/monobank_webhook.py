@@ -1,9 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.services.payment_service import PaymentService
-from app.services.monobank_service import MonobankService
+from app.dependencies import get_payment_service
 from app.database import get_db
-from app.config import settings
 from app.utils.security import verify_webhook_signature
 import json
 import logging
@@ -12,21 +10,10 @@ router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 logger = logging.getLogger(__name__)
 
 
-def get_payment_service(db: AsyncSession = Depends(get_db)) -> PaymentService:
-    """Dependency для отримання сервісу платежів"""
-    
-    monobank_service = MonobankService(
-        store_id=settings.monobank_store_id,
-        store_secret=settings.monobank_store_secret
-    )
-    
-    return PaymentService(monobank_service)
-
-
 @router.post("/monobank/callback")
 async def monobank_callback(
     request: Request,
-    payment_service: PaymentService = Depends(get_payment_service)
+    payment_service = Depends(get_payment_service)
 ):
     """Обробка callback від Monobank"""
     try:
